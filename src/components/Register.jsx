@@ -30,6 +30,7 @@ export default function Register({ onSuccess }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        credentials: "include",
       })
 
       const data = await res.json()
@@ -37,8 +38,7 @@ export default function Register({ onSuccess }) {
       if (!res.ok) {
         throw new Error(data.message || "Ошибка")
       }
-
-      onSuccess()
+      onSuccess(data.accessToken)
 
     } catch (e) {
       setError(e.message)
