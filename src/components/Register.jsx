@@ -18,8 +18,8 @@ export default function Register({ onSuccess }) {
     setError("")
 
     const url = mode === "register"
-      ? "http://localhost:3000/auth/register"
-      : "http://localhost:3000/auth/login"
+      ? "https://elink-p96q.onrender.com/auth/register"
+      : "https://elink-p96q.onrender.com/auth/login"
 
     const body = mode === "register"
       ? form

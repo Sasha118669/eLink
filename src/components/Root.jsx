@@ -32,7 +32,7 @@ export default function Root() {
       return
     }
 
-    const res = await fetch("http://localhost:3000/auth/refresh", {
+    const res = await fetch("https://elink-p96q.onrender.com/auth/refresh", {
       method: "POST",
       credentials: "include",
     })

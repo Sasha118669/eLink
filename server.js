@@ -23,7 +23,10 @@ const cookieOptions = {
   maxAge: 30 * 24 * 60 * 60 * 1000,
 };
 
-await mongoose.connect(process.env.MONGO_URI);
+await mongoose.connect(process.env.MONGO_URI, {
+  tls: true,
+  tlsAllowInvalidCertificates: true,
+});
 
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true },
