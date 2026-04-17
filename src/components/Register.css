@@ -39,6 +39,7 @@
   font-size: 14px;
   outline: none;
   transition: border-color 0.15s;
+  box-sizing: border-box;
 }
 
 .auth-card input::placeholder {
@@ -76,12 +77,14 @@
   font-size: 13px;
   color: #f87171;
   text-align: center;
+  margin: 0;
 }
 
 .auth-link {
   text-align: center;
   font-size: 13px;
   color: #8FA4C8;
+  margin: 0;
 }
 
 .auth-link a {

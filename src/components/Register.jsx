@@ -2,6 +2,8 @@ import { useState } from "react"
 import "./Register.css"
 
 export default function Register({ onSuccess }) {
+  const [mode, setMode] = useState("register") // "register" | "login"
+
   const [form, setForm] = useState({
     username: "",
     phonenumber: "",
@@ -15,17 +17,25 @@ export default function Register({ onSuccess }) {
     setLoading(true)
     setError("")
 
+    const url = mode === "register"
+      ? "http://localhost:3000/auth/register"
+      : "http://localhost:3000/auth/login"
+
+    const body = mode === "register"
+      ? form
+      : { email: form.email, password: form.password }
+
     try {
-      const res = await fetch("http://localhost:3000/auth/register", {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(body),
       })
 
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.message || "Ошибка регистрации")
+        throw new Error(data.message || "Ошибка")
       }
 
       onSuccess()
@@ -37,23 +47,32 @@ export default function Register({ onSuccess }) {
     }
   }
 
+  const switchMode = () => {
+    setMode(prev => prev === "register" ? "login" : "register")
+    setError("")
+    setForm({ username: "", phonenumber: "", email: "", password: "" })
+  }
+
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <h2>Создать аккаунт</h2>
+        <h2>{mode === "register" ? "Создать аккаунт" : "Войти"}</h2>
 
-        <input
-          placeholder="Имя пользователя"
-          value={form.username}
-          onChange={e => setForm({ ...form, username: e.target.value })}
-        />
-
-        <input
-          placeholder="+380 XX XXX XX XX"
-          type="tel"
-          value={form.phonenumber}
-          onChange={e => setForm({ ...form, phonenumber: e.target.value })}
-        />
+        {mode === "register" && (
+          <>
+            <input
+              placeholder="Имя пользователя"
+              value={form.username}
+              onChange={e => setForm({ ...form, username: e.target.value })}
+            />
+            <input
+              placeholder="+380 XX XXX XX XX"
+              type="tel"
+              value={form.phonenumber}
+              onChange={e => setForm({ ...form, phonenumber: e.target.value })}
+            />
+          </>
+        )}
 
         <input
           placeholder="Email"
@@ -72,8 +91,15 @@ export default function Register({ onSuccess }) {
         {error && <p className="auth-error">{error}</p>}
 
         <button onClick={handleSubmit} disabled={loading}>
-          {loading ? "..." : "Зарегистрироваться"}
+          {loading ? "..." : mode === "register" ? "Зарегистрироваться" : "Войти"}
         </button>
+
+        <p className="auth-link">
+          {mode === "register"
+            ? <>Уже есть аккаунт? <a onClick={switchMode}>Войти</a></>
+            : <>Нет аккаунта? <a onClick={switchMode}>Зарегистрироваться</a></>
+          }
+        </p>
       </div>
     </div>
   )
