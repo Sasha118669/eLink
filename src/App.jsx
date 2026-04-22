@@ -34,7 +34,10 @@ export default function App() {
   }
 
   const handleKey = (e) => {
-    if (e.key === "Enter") sendMessage()
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage()
+    }
   }
 
   return (
@@ -105,13 +108,14 @@ export default function App() {
           <button className="icon-btn" aria-label="Прикрепить файл">
             <AttachIcon />
           </button>
-          <input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKey}
-            placeholder="Написать сообщение..."
-            aria-label="Текст сообщения"
-          />
+          <textarea
+  value={input}
+  onChange={e => setInput(e.target.value)}
+  onKeyDown={handleKey}
+  placeholder="Написать сообщение..."
+  aria-label="Текст сообщения"
+  rows={1}
+/>
           <button className="send-btn" onClick={sendMessage} aria-label="Отправить сообщение">
             <SendIcon />
           </button>

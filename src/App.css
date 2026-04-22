@@ -262,6 +262,9 @@ body {
   border-radius: 16px;
   font-size: 14px;
   line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-align: left;
 }
 
 .msg--out .bubble {
@@ -289,27 +292,31 @@ body {
   padding: 12px 16px;
   border-top: 1px solid var(--border);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
 }
 
-.input-area input {
+.input-area textarea {
   flex: 1;
   padding: 9px 16px;
-  border-radius: 999px;
+  border-radius: 16px;
   border: 1px solid var(--input-border);
   background: var(--input);
   color: var(--text);
   font-size: 14px;
   outline: none;
   transition: border-color 0.15s;
+  resize: none;
+  overflow-y: auto;
+  max-height: 160px;
+  line-height: 1.5;
 }
 
-.input-area input::placeholder {
+.input-area textarea::placeholder {
   color: var(--muted);
 }
 
-.input-area input:focus {
+.input-area textarea:focus {
   border-color: var(--purple);
 }
 
