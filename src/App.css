@@ -354,6 +354,67 @@ body {
 
 .icon-btn:hover { background: rgba(255,255,255,0.08); }
 
+/* Used for the "+" button to create new chat */
+.plus-btn {
+  transition: background 0.1s, transform 0.3s;
+}
+
+.plus-btn--open {
+  transform: rotate(45deg);
+}
+
+.new-chat-panel {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  background: #0e1628;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 16px;
+}
+
+.new-chat-panel--open {
+  max-height: 220px;
+  padding: 16px;
+}
+
+.new-chat-panel__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.new-chat-input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--input-border);
+  background: var(--input);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.new-chat-input::placeholder { color: var(--muted); }
+.new-chat-input:focus { border-color: var(--purple); }
+
+.new-chat-submit {
+  width: 100%;
+  padding: 8px;
+  border-radius: 20px;
+  border: none;
+  background: var(--purple);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.new-chat-submit:hover { opacity: 0.85; }
+
 /* ── Mobile ──────────────────────────────── */
 
 .mobile-back { display: none; }

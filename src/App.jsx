@@ -32,6 +32,7 @@ export default function App() {
   const [input, setInput]           = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [query, setQuery] = useState("")
+  const [newChatOpen, setNewChatOpen] = useState(false)
 
   const filteredChats = query.trim()
   ? miniSearch.search(query, { prefix: true, fuzzy: 0.2 })
@@ -60,10 +61,20 @@ export default function App() {
       <aside className={`sidebar ${sidebarOpen ? "sidebar--open" : ""}`} aria-label="Список чатов">
         <header className="sidebar__header">
           <span className="sidebar__title">Сообщения</span>
-          <button className="icon-btn" aria-label="Новая беседа">
-            <PlusIcon />
-          </button>
+          <button
+  className={`icon-btn plus-btn ${newChatOpen ? "plus-btn--open" : ""}`}
+  aria-label="Новая беседа"
+  onClick={() => setNewChatOpen(prev => !prev)}
+>
+  <PlusIcon />
+</button>
         </header>
+        <div className={`new-chat-panel ${newChatOpen ? "new-chat-panel--open" : ""}`}>
+  <p className="new-chat-panel__title">Новый чат</p>
+  <input placeholder="Никнейм" className="new-chat-input" />
+  <input placeholder="Номер телефона" className="new-chat-input" />
+  <button className="new-chat-submit">Найти</button>
+</div>
 
         <div className="sidebar__search">
           <input placeholder="Поиск..." aria-label="Поиск чатов" 
