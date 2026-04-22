@@ -1,7 +1,7 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
-// import createAuth from "edaten-auth";
+import createAuth from "edaten-auth";
 import "dotenv/config"; 
 import cors from "cors";
 import jwt from "jsonwebtoken";
@@ -28,202 +28,210 @@ await mongoose.connect(process.env.MONGO_URI, {
   tlsAllowInvalidCertificates: true,
 });
 
-const userSchema = new mongoose.Schema({
-  username: { type: String, required: true },
-  phonenumber: { type: String, required: true, unique: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  refreshTokens: { type: [String], default: [] },
-});
-const User = mongoose.model("User", userSchema);
+app.use("/auth", createAuth({
+  jwtSecret: process.env.JWT_SECRET,
+  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
+  requiredFields: ["username", "phonenumber", "email", "password"],
+  loginFields: "email",
+}));
 
-const createJwtToken = (user) => {
-  return jwt.sign(
-    { id: user._id, username: user.username, phonenumber: user.phonenumber },
-    process.env.JWT_SECRET,
-    { expiresIn: "15m" }
-  );
-};
 
-const createRefreshToken = (user) => {
-  return jwt.sign(
-    { id: user._id, username: user.username, phonenumber: user.phonenumber },
-    process.env.JWT_REFRESH_SECRET,
-    { expiresIn: "30d" }
-  );
-};
+// const userSchema = new mongoose.Schema({
+//   username: { type: String, required: true },
+//   phonenumber: { type: String, required: true, unique: true },
+//   email: { type: String, required: true, unique: true },
+//   password: { type: String, required: true },
+//   refreshTokens: { type: [String], default: [] },
+// });
+// const User = mongoose.model("User", userSchema);
 
-// Middleware для проверки JWT в защищенных маршрутах
-const auth = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ message: "No token provided" });
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    res.status(401).json({ message: "Invalid or expired token" });
-  }
-};
+// const createJwtToken = (user) => {
+//   return jwt.sign(
+//     { id: user._id, username: user.username, phonenumber: user.phonenumber },
+//     process.env.JWT_SECRET,
+//     { expiresIn: "15m" }
+//   );
+// };
 
-// Регистрация нового пользователя
-app.post("/auth/register", async (req, res) => {
-  const { username, phonenumber, email, password } = req.body;
+// const createRefreshToken = (user) => {
+//   return jwt.sign(
+//     { id: user._id, username: user.username, phonenumber: user.phonenumber },
+//     process.env.JWT_REFRESH_SECRET,
+//     { expiresIn: "30d" }
+//   );
+// };
 
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10);
+// // Middleware для проверки JWT в защищенных маршрутах
+// const auth = (req, res, next) => {
+//   const token = req.headers.authorization?.split(" ")[1];
+//   if (!token) return res.status(401).json({ message: "No token provided" });
+//   try {
+//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+//     req.user = decoded;
+//     next();
+//   } catch (error) {
+//     res.status(401).json({ message: "Invalid or expired token" });
+//   }
+// };
 
-    const user = await User.create({
-      username,
-      phonenumber,
-      email,
-      password: hashedPassword,
-    });
+// // Регистрация нового пользователя
+// app.post("/auth/register", async (req, res) => {
+//   const { username, phonenumber, email, password } = req.body;
 
-    const accessToken = createJwtToken(user);
-    const refreshToken = createRefreshToken(user);
+//   try {
+//     const hashedPassword = await bcrypt.hash(password, 10);
 
-    user.refreshTokens = [refreshToken];
-    await user.save();
+//     const user = await User.create({
+//       username,
+//       phonenumber,
+//       email,
+//       password: hashedPassword,
+//     });
 
-    res.cookie("refreshToken", refreshToken, cookieOptions);
+//     const accessToken = createJwtToken(user);
+//     const refreshToken = createRefreshToken(user);
 
-    return res.json({
-      user: {
-        id: user._id,
-        username: user.username,
-        phonenumber: user.phonenumber,
-        email: user.email,
-      },
-      accessToken,
-    });
+//     user.refreshTokens = [refreshToken];
+//     await user.save();
 
-  } catch (error) {
-    console.error("Registration error:", error.message);
+//     res.cookie("refreshToken", refreshToken, cookieOptions);
 
-    if (error.code === 11000) {
-      return res.status(400).json({ message: "User already exists" });
-    }
+//     return res.json({
+//       user: {
+//         id: user._id,
+//         username: user.username,
+//         phonenumber: user.phonenumber,
+//         email: user.email,
+//       },
+//       accessToken,
+//     });
 
-    return res.status(400).json({ message: error.message });
-  }
-});
+//   } catch (error) {
+//     console.error("Registration error:", error.message);
 
-// Вход пользователя
-app.post("/auth/login", async (req, res) => {
-  const { email, password } = req.body;
+//     if (error.code === 11000) {
+//       return res.status(400).json({ message: "User already exists" });
+//     }
 
-  try {
-    const user = await User.findOne({ email });
+//     return res.status(400).json({ message: error.message });
+//   }
+// });
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+// // Вход пользователя
+// app.post("/auth/login", async (req, res) => {
+//   const { email, password } = req.body;
 
-    const isMatch = await bcrypt.compare(password, user.password);
+//   try {
+//     const user = await User.findOne({ email });
 
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
 
-    const accessToken = createJwtToken(user);
-    const refreshToken = createRefreshToken(user);
+//     const isMatch = await bcrypt.compare(password, user.password);
 
-    user.refreshTokens.push(refreshToken);
-    await user.save();
+//     if (!isMatch) {
+//       return res.status(400).json({ message: "Invalid credentials" });
+//     }
 
-    res.cookie("refreshToken", refreshToken, cookieOptions);
+//     const accessToken = createJwtToken(user);
+//     const refreshToken = createRefreshToken(user);
 
-    return res.json({
-      user: {
-        id: user._id,
-        username: user.username,
-        phonenumber: user.phonenumber,
-        email: user.email,
-      },
-      accessToken,
-    });
+//     user.refreshTokens.push(refreshToken);
+//     await user.save();
 
-  } catch (error) {
-    console.error("Login error:", error.message);
-    return res.status(500).json({ message: error.message });
-  }
-});
+//     res.cookie("refreshToken", refreshToken, cookieOptions);
 
-// Обновление access токена с помощью refresh токена
-app.post("/auth/refresh", async (req, res) => {
-  const { refreshToken } = req.cookies;
+//     return res.json({
+//       user: {
+//         id: user._id,
+//         username: user.username,
+//         phonenumber: user.phonenumber,
+//         email: user.email,
+//       },
+//       accessToken,
+//     });
 
-  if (!refreshToken) {
-    return res.status(401).json({ message: "Refresh token required" });
-  }
+//   } catch (error) {
+//     console.error("Login error:", error.message);
+//     return res.status(500).json({ message: error.message });
+//   }
+// });
 
-  try {
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+// // Обновление access токена с помощью refresh токена
+// app.post("/auth/refresh", async (req, res) => {
+//   const { refreshToken } = req.cookies;
 
-    const user = await User.findById(decoded.id);
+//   if (!refreshToken) {
+//     return res.status(401).json({ message: "Refresh token required" });
+//   }
 
-    if (!user || !user.refreshTokens.includes(refreshToken)) {
-      return res.status(401).json({ message: "Invalid refresh token" });
-    }
+//   try {
+//     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
 
-    const newAccessToken = createJwtToken(user);
-    const newRefreshToken = createRefreshToken(user);
+//     const user = await User.findById(decoded.id);
 
-    user.refreshTokens = user.refreshTokens.filter(
-      (t) => t !== refreshToken
-    );
+//     if (!user || !user.refreshTokens.includes(refreshToken)) {
+//       return res.status(401).json({ message: "Invalid refresh token" });
+//     }
 
-    user.refreshTokens.push(newRefreshToken);
-    await user.save();
+//     const newAccessToken = createJwtToken(user);
+//     const newRefreshToken = createRefreshToken(user);
 
-    res.cookie("refreshToken", newRefreshToken, cookieOptions);
+//     user.refreshTokens = user.refreshTokens.filter(
+//       (t) => t !== refreshToken
+//     );
 
-    return res.json({
-      accessToken: newAccessToken,
-      user: {
-        id: user._id,
-        username: user.username,
-        phonenumber: user.phonenumber,
-        email: user.email,
-      },
-    });
+//     user.refreshTokens.push(newRefreshToken);
+//     await user.save();
 
-  } catch (error) {
-    console.error("Refresh error:", error.message);
-    return res.status(401).json({ message: "Invalid or expired refresh token" });
-  }
-});
+//     res.cookie("refreshToken", newRefreshToken, cookieOptions);
 
-// Выход пользователя и удаление refresh токена
-app.post("/auth/logout", async (req, res) => {
-  const { refreshToken } = req.cookies;
+//     return res.json({
+//       accessToken: newAccessToken,
+//       user: {
+//         id: user._id,
+//         username: user.username,
+//         phonenumber: user.phonenumber,
+//         email: user.email,
+//       },
+//     });
 
-  if (!refreshToken) {
-    return res.status(400).json({ message: "Refresh token required" });
-  }
+//   } catch (error) {
+//     console.error("Refresh error:", error.message);
+//     return res.status(401).json({ message: "Invalid or expired refresh token" });
+//   }
+// });
 
-  try {
-    const user = await User.findOne({
-      refreshTokens: refreshToken,
-    });
+// // Выход пользователя и удаление refresh токена
+// app.post("/auth/logout", async (req, res) => {
+//   const { refreshToken } = req.cookies;
 
-    if (user) {
-      user.refreshTokens = user.refreshTokens.filter(
-        (t) => t !== refreshToken
-      );
-      await user.save();
-    }
+//   if (!refreshToken) {
+//     return res.status(400).json({ message: "Refresh token required" });
+//   }
 
-    res.clearCookie("refreshToken");
+//   try {
+//     const user = await User.findOne({
+//       refreshTokens: refreshToken,
+//     });
 
-    return res.json({ message: "Logged out" });
+//     if (user) {
+//       user.refreshTokens = user.refreshTokens.filter(
+//         (t) => t !== refreshToken
+//       );
+//       await user.save();
+//     }
 
-  } catch (error) {
-    console.error("Logout error:", error.message);
-    return res.status(500).json({ message: error.message });
-  }
-});
+//     res.clearCookie("refreshToken");
+
+//     return res.json({ message: "Logged out" });
+
+//   } catch (error) {
+//     console.error("Logout error:", error.message);
+//     return res.status(500).json({ message: error.message });
+//   }
+// });
 // app.use("/auth", createAuth({
 //   jwtSecret: process.env.JWT_SECRET,
 //   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
