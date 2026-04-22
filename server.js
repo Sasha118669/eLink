@@ -1,11 +1,11 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
-import createAuth from "edaten-auth";
 import "dotenv/config"; 
 import cors from "cors";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import createAuth from "edaten-auth";
 
 const app = express();
 app.use(express.json());

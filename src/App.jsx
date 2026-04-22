@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import "./App.css"
+import MiniSearch from 'minisearch'
 
 const CHATS = [
   { id: 1, name: "Алексей К.", initials: "АК", color: "purple", time: "14:32", preview: "Окей, завтра встретимся", unread: 0 },
@@ -8,6 +9,13 @@ const CHATS = [
   { id: 4, name: "Юля П.",     initials: "ЮП", color: "blue",   time: "вчера", preview: "Напишу позже",          unread: 1 },
   { id: 5, name: "Никита О.",  initials: "НО", color: "pink",   time: "пн",    preview: "Ок давай",              unread: 0 },
 ]
+
+const miniSearch = new MiniSearch({
+  fields: ['name'],
+  storeFields: ['id', 'name', 'initials', 'color', 'time', 'preview', 'unread'],
+  idField: 'id',
+});
+miniSearch.addAll(CHATS)
 
 const INIT_MESSAGES = [
   { id: 1, text: "Привет! Как дела?",                    out: false, time: "14:20" },
@@ -23,6 +31,11 @@ export default function App() {
   const [messages, setMessages]     = useState(INIT_MESSAGES)
   const [input, setInput]           = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [query, setQuery] = useState("")
+
+  const filteredChats = query.trim()
+  ? miniSearch.search(query, { prefix: true, fuzzy: 0.2 })
+  : CHATS
 
   const sendMessage = () => {
     const text = input.trim()
@@ -53,11 +66,14 @@ export default function App() {
         </header>
 
         <div className="sidebar__search">
-          <input placeholder="Поиск..." aria-label="Поиск чатов" />
+          <input placeholder="Поиск..." aria-label="Поиск чатов" 
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          />
         </div>
 
         <ul className="chat-list">
-          {CHATS.map(chat => (
+          {filteredChats.map(chat => (
             <li key={chat.id}>
               <button
                 type="button"
