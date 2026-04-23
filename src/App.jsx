@@ -1,47 +1,87 @@
 import { useState, useEffect } from "react"
 import "./App.css"
 import MiniSearch from 'minisearch'
+import { PlusIcon, BackIcon, AttachIcon, SendIcon } from "./components/icons/Icons"
 
-const CHATS = [
-  { id: 1, name: "Алексей К.", initials: "АК", color: "purple", time: "14:32", preview: "Окей, завтра встретимся", unread: 0 },
-  { id: 2, name: "Мария В.",   initials: "МВ", color: "teal",   time: "13:10", preview: "Ты посмотрел файл?",    unread: 3 },
-  { id: 3, name: "Дима С.",    initials: "ДС", color: "coral",  time: "вчера", preview: "Спасибо!",              unread: 0 },
-  { id: 4, name: "Юля П.",     initials: "ЮП", color: "blue",   time: "вчера", preview: "Напишу позже",          unread: 1 },
-  { id: 5, name: "Никита О.",  initials: "НО", color: "pink",   time: "пн",    preview: "Ок давай",              unread: 0 },
-]
+const COLORS = ["purple", "teal", "coral", "blue", "pink"]
+const getColor = (id) => COLORS[id.charCodeAt(0) % COLORS.length]
+const getInitials = (username) => username?.slice(0, 2).toUpperCase() ?? "??"
 
 const miniSearch = new MiniSearch({
   fields: ['name'],
-  storeFields: ['id', 'name', 'initials', 'color', 'time', 'preview', 'unread'],
+  storeFields: ['id', 'name'],
   idField: 'id',
-});
-miniSearch.addAll(CHATS)
-
-const INIT_MESSAGES = [
-  { id: 1, text: "Привет! Как дела?",                    out: false, time: "14:20" },
-  { id: 2, text: "Всё хорошо, работаю над проектом",     out: true,  time: "14:21" },
-  { id: 3, text: "Что за проект?",                       out: false, time: "14:22" },
-  { id: 4, text: "Делаю мессенджер на React + Node.js",  out: true,  time: "14:25" },
-  { id: 5, text: "Звучит круто! Когда покажешь?",        out: false, time: "14:28" },
-  { id: 6, text: "Окей, завтра встретимся",              out: true,  time: "14:32" },
-]
+})
 
 export default function App() {
-  const [activeChat, setActiveChat] = useState(CHATS[0])
-  const [messages, setMessages]     = useState(INIT_MESSAGES)
-  const [input, setInput]           = useState("")
+  const token = localStorage.getItem("accessToken")
+  
+  const [chats, setChats] = useState([])
+  const [activeChat, setActiveChat] = useState(null)
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [newChatOpen, setNewChatOpen] = useState(false)
+  const [newChatUsername, setNewChatUsername] = useState("")
+  const [newChatPhone, setNewChatPhone] = useState("")
+  const [foundUser, setFoundUser] = useState(null)
+  const [searchError, setSearchError] = useState("")
+
+  useEffect(() => {
+    const fetchChats = async () => {
+      const res = await fetch("http://localhost:3000/chats", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      setChats(data)
+      miniSearch.removeAll()
+      miniSearch.addAll(data.map(c => ({
+        id: c._id,
+        name: c.members.map(m => m.username).join(", "),
+      })))
+      if (data.length > 0) setActiveChat(data[0])
+    }
+    fetchChats()
+  }, [])
 
   const filteredChats = query.trim()
-  ? miniSearch.search(query, { prefix: true, fuzzy: 0.2 })
-  : CHATS
+    ? miniSearch.search(query, { prefix: true, fuzzy: 0.2 })
+    : chats
+
+  const searchUser = async () => {
+    setFoundUser(null)
+    setSearchError("")
+
+    if (!newChatUsername.trim() && !newChatPhone.trim()) {
+      setSearchError("Введи никнейм или номер телефона")
+      return
+    }
+
+    const params = new URLSearchParams()
+    if (newChatUsername.trim()) params.append("username", newChatUsername.trim())
+    if (newChatPhone.trim()) params.append("phonenumber", newChatPhone.trim())
+
+    try {
+      const res = await fetch(`http://localhost:3000/users/search?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (!res.ok) {
+        setSearchError("Пользователь не найден")
+        return
+      }
+      const user = await res.json()
+      setFoundUser(user)
+    } catch {
+      setSearchError("Ошибка соединения")
+    }
+  }
 
   const sendMessage = () => {
     const text = input.trim()
     if (!text) return
-    const now  = new Date()
+    const now = new Date()
     const time = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`
     setMessages(prev => [...prev, { id: Date.now(), text, out: true, time }])
     setInput("")
@@ -49,75 +89,101 @@ export default function App() {
 
   const handleKey = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
+      e.preventDefault()
       sendMessage()
     }
   }
 
+  const getChatName = (chat) => chat.members
+    ? chat.members.map(m => m.username).join(", ")
+    : chat.name
+
+  if (!activeChat) return <div className="loading">Загрузка...</div>
+
   return (
     <div className="app">
 
-      {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? "sidebar--open" : ""}`} aria-label="Список чатов">
         <header className="sidebar__header">
           <span className="sidebar__title">Сообщения</span>
           <button
-  className={`icon-btn plus-btn ${newChatOpen ? "plus-btn--open" : ""}`}
-  aria-label="Новая беседа"
-  onClick={() => setNewChatOpen(prev => !prev)}
->
-  <PlusIcon />
-</button>
+            className={`icon-btn plus-btn ${newChatOpen ? "plus-btn--open" : ""}`}
+            aria-label="Новая беседа"
+            onClick={() => setNewChatOpen(prev => !prev)}
+          >
+            <PlusIcon />
+          </button>
         </header>
+
         <div className={`new-chat-panel ${newChatOpen ? "new-chat-panel--open" : ""}`}>
-  <p className="new-chat-panel__title">Новый чат</p>
-  <input placeholder="Никнейм" className="new-chat-input" />
-  <input placeholder="Номер телефона" className="new-chat-input" />
-  <button className="new-chat-submit">Найти</button>
-</div>
+          <p className="new-chat-panel__title">Новый чат</p>
+          <input
+            placeholder="Никнейм"
+            className="new-chat-input"
+            value={newChatUsername}
+            onChange={e => setNewChatUsername(e.target.value)}
+          />
+          <input
+            placeholder="Номер телефона"
+            className="new-chat-input"
+            value={newChatPhone}
+            onChange={e => setNewChatPhone(e.target.value)}
+          />
+          {foundUser && (
+            <div className="found-user">
+              <span>@{foundUser.username}</span>
+              <span>{foundUser.phonenumber}</span>
+            </div>
+          )}
+          {searchError && <p className="new-chat-error">{searchError}</p>}
+          <button className="new-chat-submit" onClick={searchUser}>Найти</button>
+        </div>
 
         <div className="sidebar__search">
-          <input placeholder="Поиск..." aria-label="Поиск чатов" 
-          value={query}
-          onChange={e => setQuery(e.target.value)}
+          <input
+            placeholder="Поиск..."
+            aria-label="Поиск чатов"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
           />
         </div>
 
         <ul className="chat-list">
-          {filteredChats.map(chat => (
-            <li key={chat.id}>
-              <button
-                type="button"
-                className={`chat-item ${chat.id === activeChat.id ? "chat-item--active" : ""}`}
-                onClick={() => { setActiveChat(chat); setSidebarOpen(false) }}
-                aria-pressed={chat.id === activeChat.id}
-              >
-                <div className={`avatar avatar--${chat.color}`}>{chat.initials}</div>
-                <div className="chat-item__info">
-                  <span className="chat-item__name">{chat.name}</span>
-                  <span className="chat-item__preview">{chat.preview}</span>
-                </div>
-                <div className="chat-item__meta">
-                  <span className="chat-item__time">{chat.time}</span>
-                  {chat.unread > 0 && <span className="badge">{chat.unread}</span>}
-                </div>
-              </button>
-            </li>
-          ))}
+          {filteredChats.map(chat => {
+            const id = chat._id ?? chat.id
+            const name = getChatName(chat)
+            return (
+              <li key={id}>
+                <button
+                  type="button"
+                  className={`chat-item ${id === (activeChat._id ?? activeChat.id) ? "chat-item--active" : ""}`}
+                  onClick={() => { setActiveChat(chat); setSidebarOpen(false) }}
+                  aria-pressed={id === (activeChat._id ?? activeChat.id)}
+                >
+                  <div className={`avatar avatar--${getColor(id)}`}>
+                    {getInitials(name)}
+                  </div>
+                  <div className="chat-item__info">
+                    <span className="chat-item__name">{name}</span>
+                    <span className="chat-item__preview"></span>
+                  </div>
+                </button>
+              </li>
+            )
+          })}
         </ul>
       </aside>
 
-      {/* Main */}
       <main className="main">
         <div className="chat-header">
-          <button className="icon-btn mobile-back" onClick={() => setSidebarOpen(true)}>
+          <button className="icon-btn mobile-back" aria-label="Назад" onClick={() => setSidebarOpen(true)}>
             <BackIcon />
           </button>
-          <div className={`avatar avatar--${activeChat.color}`} style={{ width: 36, height: 36, fontSize: 12 }}>
-            {activeChat.initials}
+          <div className={`avatar avatar--${getColor(activeChat._id ?? activeChat.id)}`}>
+            {getInitials(getChatName(activeChat))}
           </div>
           <div className="chat-header__info">
-            <span className="chat-header__name">{activeChat.name}</span>
+            <span className="chat-header__name">{getChatName(activeChat)}</span>
             <span className="chat-header__status">онлайн</span>
           </div>
         </div>
@@ -126,7 +192,7 @@ export default function App() {
           {messages.map(msg => (
             <div key={msg.id} className={`msg ${msg.out ? "msg--out" : "msg--in"}`}>
               <div className="bubble">{msg.text}</div>
-              <span className="msg__time">{msg.time}</span>
+              <time className="msg__time">{msg.time}</time>
             </div>
           ))}
         </div>
@@ -136,13 +202,13 @@ export default function App() {
             <AttachIcon />
           </button>
           <textarea
-  value={input}
-  onChange={e => setInput(e.target.value)}
-  onKeyDown={handleKey}
-  placeholder="Написать сообщение..."
-  aria-label="Текст сообщения"
-  rows={1}
-/>
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKey}
+            placeholder="Написать сообщение..."
+            aria-label="Текст сообщения"
+            rows={1}
+          />
           <button className="send-btn" onClick={sendMessage} aria-label="Отправить сообщение">
             <SendIcon />
           </button>
@@ -150,17 +216,4 @@ export default function App() {
       </main>
     </div>
   )
-}
-
-function PlusIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18"><path d="M12 5v14M5 12h14"/></svg>
-}
-function BackIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18"><path d="M15 18l-6-6 6-6"/></svg>
-}
-function AttachIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18"><path d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
-}
-function SendIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="#EEEDFE" strokeWidth="2" width="16" height="16"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
 }
