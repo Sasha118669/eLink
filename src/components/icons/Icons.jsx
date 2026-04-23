@@ -10,3 +10,9 @@ export function AttachIcon() {
 export function SendIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="#EEEDFE" strokeWidth="2" width="16" height="16"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
 }
+export function BurgerIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+}
+export function LogoutIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/></svg>
+}

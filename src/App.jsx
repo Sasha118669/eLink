@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import "./App.css"
 import MiniSearch from 'minisearch'
 import { jwtDecode } from "jwt-decode"
-import { PlusIcon, BackIcon, AttachIcon, SendIcon } from "./components/icons/Icons"
+import { PlusIcon, BackIcon, AttachIcon, SendIcon, BurgerIcon, LogoutIcon } from "./components/icons/Icons"
 
 const COLORS = ["purple", "teal", "coral", "blue", "pink"]
 const getColor = (id) => COLORS[id.charCodeAt(0) % COLORS.length]
@@ -17,6 +17,7 @@ const miniSearch = new MiniSearch({
 export default function App() {
   const token = localStorage.getItem("accessToken")
   const currentUserId = jwtDecode(token).id
+  const currentUser = jwtDecode(token)
 
   const [chats, setChats] = useState([])
   const [activeChat, setActiveChat] = useState(null)
@@ -28,6 +29,8 @@ export default function App() {
   const [newChatUsername, setNewChatUsername] = useState("")
   const [newChatPhone, setNewChatPhone] = useState("")
   const [searchError, setSearchError] = useState("")
+  const [accountOpen, setAccountOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     const fetchChats = async () => {
@@ -121,6 +124,15 @@ export default function App() {
   return other?.username ?? "Неизвестный"
 }
 
+const logout = async () => {
+  await fetch("https://elink-p96q.onrender.com/auth/logout", {
+    method: "POST",
+    credentials: "include",
+  })
+  localStorage.removeItem("accessToken")
+  window.location.href = "/"
+}
+
   if (!activeChat) return <div className="loading">Загрузка...</div>
 
   return (
@@ -128,6 +140,13 @@ export default function App() {
 
       <aside className={`sidebar ${sidebarOpen ? "sidebar--open" : ""}`} aria-label="Список чатов">
         <header className="sidebar__header">
+          <button
+            className="icon-btn burger-btn"
+            aria-label="Меню аккаунта"
+            onClick={() => setMenuOpen(prev => !prev)}
+          >
+            <BurgerIcon />
+          </button>
           <span className="sidebar__title">Сообщения</span>
           <button
             className={`icon-btn plus-btn ${newChatOpen ? "plus-btn--open" : ""}`}
@@ -137,6 +156,22 @@ export default function App() {
             <PlusIcon />
           </button>
         </header>
+
+        <div className={`account-panel ${menuOpen ? "account-panel--open" : ""}`} aria-hidden={!menuOpen}>
+          <div className="account-panel__overlay" onClick={() => setMenuOpen(false)} />
+          <div className="account-panel__content">
+            <div className="account-panel__profile">
+              <div className={`avatar avatar--${getColor(currentUserId)} account-panel__avatar`}>
+                {getInitials(currentUser.username)}
+              </div>
+              <span className="account-panel__username">@{currentUser.username}</span>
+            </div>
+            <button className="account-panel__logout" onClick={logout}>
+              <LogoutIcon />
+              Выйти
+            </button>
+          </div>
+        </div>
 
         <div className={`new-chat-panel ${newChatOpen ? "new-chat-panel--open" : ""}`}>
           <p className="new-chat-panel__title">Новый чат</p>
