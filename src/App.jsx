@@ -15,7 +15,7 @@ const miniSearch = new MiniSearch({
 
 export default function App() {
   const token = localStorage.getItem("accessToken")
-  
+
   const [chats, setChats] = useState([])
   const [activeChat, setActiveChat] = useState(null)
   const [messages, setMessages] = useState([])
@@ -25,7 +25,6 @@ export default function App() {
   const [newChatOpen, setNewChatOpen] = useState(false)
   const [newChatUsername, setNewChatUsername] = useState("")
   const [newChatPhone, setNewChatPhone] = useState("")
-  const [foundUser, setFoundUser] = useState(null)
   const [searchError, setSearchError] = useState("")
 
   useEffect(() => {
@@ -51,32 +50,52 @@ export default function App() {
     : chats
 
   const searchUser = async () => {
-    setFoundUser(null)
-    setSearchError("")
+  setSearchError("")
 
-    if (!newChatUsername.trim() && !newChatPhone.trim()) {
-      setSearchError("Введи никнейм или номер телефона")
+  if (!newChatUsername.trim() && !newChatPhone.trim()) {
+    setSearchError("Введи никнейм или номер телефона")
+    return
+  }
+
+  const params = new URLSearchParams()
+  if (newChatUsername.trim()) params.append("username", newChatUsername.trim())
+  if (newChatPhone.trim()) params.append("phonenumber", newChatPhone.trim())
+
+  try {
+    const res = await fetch(`http://localhost:3000/users/search?${params}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) {
+      setSearchError("Пользователь не найден")
       return
     }
+    const user = await res.json()
 
-    const params = new URLSearchParams()
-    if (newChatUsername.trim()) params.append("username", newChatUsername.trim())
-    if (newChatPhone.trim()) params.append("phonenumber", newChatPhone.trim())
+    // сразу создаём чат
+    const chatRes = await fetch("http://localhost:3000/chats", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ contactId: user._id })
+    })
+    const chat = await chatRes.json()
 
-    try {
-      const res = await fetch(`http://localhost:3000/users/search?${params}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      if (!res.ok) {
-        setSearchError("Пользователь не найден")
-        return
-      }
-      const user = await res.json()
-      setFoundUser(user)
-    } catch {
-      setSearchError("Ошибка соединения")
-    }
+    // добавляем в список если его там ещё нет
+    setChats(prev => {
+      const exists = prev.find(c => c._id === chat._id)
+      return exists ? prev : [...prev, chat]
+    })
+
+    setNewChatUsername("")
+    setNewChatPhone("")
+    setNewChatOpen(false)
+
+  } catch {
+    setSearchError("Ошибка соединения")
   }
+}
 
   const sendMessage = () => {
     const text = input.trim()
@@ -129,12 +148,7 @@ export default function App() {
             value={newChatPhone}
             onChange={e => setNewChatPhone(e.target.value)}
           />
-          {foundUser && (
-            <div className="found-user">
-              <span>@{foundUser.username}</span>
-              <span>{foundUser.phonenumber}</span>
-            </div>
-          )}
+
           {searchError && <p className="new-chat-error">{searchError}</p>}
           <button className="new-chat-submit" onClick={searchUser}>Найти</button>
         </div>
