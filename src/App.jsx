@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react"
 import "./App.css"
 import MiniSearch from 'minisearch'
-import { jwtDecode } from "jwt-decode"
 import { PlusIcon, BackIcon, AttachIcon, SendIcon, BurgerIcon, LogoutIcon } from "./components/icons/Icons"
 
 const COLORS = ["purple", "teal", "coral", "blue", "pink"]
@@ -16,8 +15,6 @@ const miniSearch = new MiniSearch({
 
 export default function App() {
   const token = localStorage.getItem("accessToken")
-  const currentUserId = jwtDecode(token).id
-  const currentUser = jwtDecode(token)
 
   const [chats, setChats] = useState([])
   const [activeChat, setActiveChat] = useState(null)
@@ -31,24 +28,37 @@ export default function App() {
   const [searchError, setSearchError] = useState("")
   const [accountOpen, setAccountOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [currentUser, setCurrentUser] = useState(null);
 
-  useEffect(() => {
-    const fetchChats = async () => {
-      const res = await fetch("http://localhost:3000/chats", {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      if (!res.ok) return
-      const data = await res.json()
-      setChats(data)
-      miniSearch.removeAll()
-      miniSearch.addAll(data.map(c => ({
-        id: c._id,
-        name: c.members.find(m => m._id !== currentUserId)?.username ?? "Неизвестный"
-      })))
-      if (data.length > 0) setActiveChat(data[0])
-    }
-    fetchChats()
-  }, [])
+useEffect(() => {
+  if (!token) return
+
+  const init = async () => {
+    // сначала грузим юзера
+    const meRes = await fetch("http://localhost:3000/auth/me", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!meRes.ok) return
+    const me = await meRes.json()
+    setCurrentUser(me)
+
+    // потом чаты — используем me._id напрямую
+    const chatsRes = await fetch("http://localhost:3000/chats", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!chatsRes.ok) return
+    const data = await chatsRes.json()
+    setChats(data)
+    miniSearch.removeAll()
+    miniSearch.addAll(data.map(c => ({
+      id: c._id,
+      name: c.members.find(m => m._id !== me._id)?.username ?? "Неизвестный"
+    })))
+    if (data.length > 0) setActiveChat(data[0])
+  }
+
+  init()
+}, [])
 
   const filteredChats = query.trim()
     ? miniSearch.search(query, { prefix: true, fuzzy: 0.2 })
@@ -120,7 +130,7 @@ export default function App() {
 
   const getChatName = (chat) => {
   if (!chat.members) return chat.name ?? ""
-  const other = chat.members.find(m => m._id !== currentUserId)
+  const other = chat.members.find(m => m._id !== currentUser?._id)
   return other?.username ?? "Неизвестный"
 }
 
@@ -161,7 +171,7 @@ const logout = async () => {
           <div className="account-panel__overlay" onClick={() => setMenuOpen(false)} />
           <div className="account-panel__content">
             <div className="account-panel__profile">
-              <div className={`avatar avatar--${getColor(currentUserId)} account-panel__avatar`}>
+              <div className={`avatar avatar--${getColor(currentUser._id)} account-panel__avatar`}>
                 {getInitials(currentUser.username)}
               </div>
               <span className="account-panel__username">@{currentUser.username}</span>

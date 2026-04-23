@@ -30,6 +30,17 @@ app.use("/auth", createAuth({
 
 const auth = authMiddleware(process.env.JWT_SECRET);
 
+app.get("/auth/me", auth, async (req, res) => {
+  const user = await mongoose
+    .model("User")
+    .findById(req.user.id)
+    .select("_id username phonenumber email");
+
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  res.json(user);
+});
+
 // найти юзера по нику или телефону
 app.get("/users/search", auth, async (req, res) => {
   const { username, phonenumber } = req.query;
