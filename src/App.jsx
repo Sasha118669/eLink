@@ -40,7 +40,7 @@ export default function App() {
       miniSearch.removeAll()
       miniSearch.addAll(data.map(c => ({
         id: c._id,
-        name: c.members.map(m => m.username).join(", "),
+        name: c.members.find(m => m._id !== currentUserId)?.username ?? "Неизвестный"
       })))
       if (data.length > 0) setActiveChat(data[0])
     }
