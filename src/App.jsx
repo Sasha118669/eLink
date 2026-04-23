@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import "./App.css"
 import MiniSearch from 'minisearch'
+import { jwtDecode } from "jwt-decode"
 import { PlusIcon, BackIcon, AttachIcon, SendIcon } from "./components/icons/Icons"
 
 const COLORS = ["purple", "teal", "coral", "blue", "pink"]
@@ -15,6 +16,7 @@ const miniSearch = new MiniSearch({
 
 export default function App() {
   const token = localStorage.getItem("accessToken")
+  const currentUserId = jwtDecode(token).id
 
   const [chats, setChats] = useState([])
   const [activeChat, setActiveChat] = useState(null)
@@ -113,9 +115,11 @@ export default function App() {
     }
   }
 
-  const getChatName = (chat) => chat.members
-    ? chat.members.map(m => m.username).join(", ")
-    : chat.name
+  const getChatName = (chat) => {
+  if (!chat.members) return chat.name ?? ""
+  const other = chat.members.find(m => m._id !== currentUserId)
+  return other?.username ?? "Неизвестный"
+}
 
   if (!activeChat) return <div className="loading">Загрузка...</div>
 
