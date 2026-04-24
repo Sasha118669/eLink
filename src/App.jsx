@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import "./App.css"
 import MiniSearch from 'minisearch'
 import { PlusIcon, BackIcon, AttachIcon, SendIcon, BurgerIcon, LogoutIcon } from "./components/icons/Icons"
@@ -26,99 +26,128 @@ export default function App() {
   const [newChatUsername, setNewChatUsername] = useState("")
   const [newChatPhone, setNewChatPhone] = useState("")
   const [searchError, setSearchError] = useState("")
-  const [accountOpen, setAccountOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null)
+  const messagesEndRef = useRef(null)
 
-useEffect(() => {
-  if (!token) return
+  // Инициализация: загружаем пользователя и чаты
+  useEffect(() => {
+    if (!token) return
+    const init = async () => {
+      const meRes = await fetch("https://elink-p96q.onrender.com/auth/me", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (!meRes.ok) return
+      const me = await meRes.json()
+      setCurrentUser(me)
 
-  const init = async () => {
-    // сначала грузим юзера
-    const meRes = await fetch("http://localhost:3000/auth/me", {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (!meRes.ok) return
-    const me = await meRes.json()
-    setCurrentUser(me)
+      const chatsRes = await fetch("https://elink-p96q.onrender.com/chats", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (!chatsRes.ok) return
+      const data = await chatsRes.json()
+      setChats(data)
+      miniSearch.removeAll()
+      miniSearch.addAll(data.map(c => ({
+        id: c._id,
+        name: c.members.find(m => m._id !== me._id)?.username ?? "Неизвестный"
+      })))
+      if (data.length > 0) setActiveChat(data[0])
+    }
+    init()
+  }, [])
 
-    // потом чаты — используем me._id напрямую
-    const chatsRes = await fetch("http://localhost:3000/chats", {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (!chatsRes.ok) return
-    const data = await chatsRes.json()
-    setChats(data)
-    miniSearch.removeAll()
-    miniSearch.addAll(data.map(c => ({
-      id: c._id,
-      name: c.members.find(m => m._id !== me._id)?.username ?? "Неизвестный"
-    })))
-    if (data.length > 0) setActiveChat(data[0])
+  // Загружаем сообщения при смене активного чата
+  useEffect(() => {
+    if (!activeChat || !token || !currentUser) return
+    const loadMessages = async () => {
+      const res = await fetch(`https://elink-p96q.onrender.com/chats/${activeChat._id}/messages`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      setMessages(data.map(msg => ({
+        id: msg._id,
+        text: msg.text,
+        out: msg.sender._id === currentUser._id,
+        time: formatTime(msg.createdAt),
+      })))
+    }
+    loadMessages()
+  }, [activeChat, currentUser])
+
+  // Прокрутка вниз при новых сообщениях
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
+
+  const formatTime = (iso) => {
+    const d = new Date(iso)
+    return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`
   }
-
-  init()
-}, [])
 
   const filteredChats = query.trim()
     ? miniSearch.search(query, { prefix: true, fuzzy: 0.2 })
     : chats
 
   const searchUser = async () => {
-  setSearchError("")
-
-  if (!newChatUsername.trim() && !newChatPhone.trim()) {
-    setSearchError("Введи никнейм или номер телефона")
-    return
-  }
-
-  const params = new URLSearchParams()
-  if (newChatUsername.trim()) params.append("username", newChatUsername.trim())
-  if (newChatPhone.trim()) params.append("phonenumber", newChatPhone.trim())
-
-  try {
-    const res = await fetch(`http://localhost:3000/users/search?${params}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (!res.ok) {
-      setSearchError("Пользователь не найден")
+    setSearchError("")
+    if (!newChatUsername.trim() && !newChatPhone.trim()) {
+      setSearchError("Введи никнейм или номер телефона")
       return
     }
-    const user = await res.json()
-
-    // сразу создаём чат
-    const chatRes = await fetch("http://localhost:3000/chats", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ contactId: user._id })
-    })
-    const chat = await chatRes.json()
-
-    // добавляем в список если его там ещё нет
-    setChats(prev => {
-      const exists = prev.find(c => c._id === chat._id)
-      return exists ? prev : [...prev, chat]
-    })
-
-    setNewChatUsername("")
-    setNewChatPhone("")
-    setNewChatOpen(false)
-
-  } catch {
-    setSearchError("Ошибка соединения")
+    const params = new URLSearchParams()
+    if (newChatUsername.trim()) params.append("username", newChatUsername.trim())
+    if (newChatPhone.trim()) params.append("phonenumber", newChatPhone.trim())
+    try {
+      const res = await fetch(`https://elink-p96q.onrender.com/users/search?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (!res.ok) { setSearchError("Пользователь не найден"); return }
+      const user = await res.json()
+      const chatRes = await fetch("https://elink-p96q.onrender.com/chats", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: user._id })
+      })
+      const chat = await chatRes.json()
+      setChats(prev => {
+        const exists = prev.find(c => c._id === chat._id)
+        return exists ? prev : [...prev, chat]
+      })
+      setNewChatUsername("")
+      setNewChatPhone("")
+      setNewChatOpen(false)
+    } catch {
+      setSearchError("Ошибка соединения")
+    }
   }
-}
 
-  const sendMessage = () => {
+  // Отправка — сохраняем в БД
+  const sendMessage = async () => {
     const text = input.trim()
-    if (!text) return
-    const now = new Date()
-    const time = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`
-    setMessages(prev => [...prev, { id: Date.now(), text, out: true, time }])
+    if (!text || !activeChat) return
     setInput("")
+    try {
+      const res = await fetch(`https://elink-p96q.onrender.com/chats/${activeChat._id}/messages`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+      })
+      if (!res.ok) return
+      const msg = await res.json()
+      setMessages(prev => [...prev, {
+        id: msg._id,
+        text: msg.text,
+        out: true,
+        time: formatTime(msg.createdAt),
+      }])
+    } catch (e) {
+      console.error("Ошибка отправки:", e)
+    }
   }
 
   const handleKey = (e) => {
@@ -129,45 +158,39 @@ useEffect(() => {
   }
 
   const getChatName = (chat) => {
-  if (!chat.members) return chat.name ?? ""
-  const other = chat.members.find(m => m._id !== currentUser?._id)
-  return other?.username ?? "Неизвестный"
-}
+    if (!chat.members) return chat.name ?? ""
+    const other = chat.members.find(m => m._id !== currentUser?._id)
+    return other?.username ?? "Неизвестный"
+  }
 
-const logout = async () => {
-  await fetch("https://elink-p96q.onrender.com/auth/logout", {
-    method: "POST",
-    credentials: "include",
-  })
-  localStorage.removeItem("accessToken")
-  window.location.href = "/"
-}
+  const logout = async () => {
+    await fetch("https://elink-p96q.onrender.com/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    })
+    localStorage.removeItem("accessToken")
+    window.location.href = "/"
+  }
 
-  if (!activeChat) return <div className="loading">Загрузка...</div>
+  if (!currentUser || !activeChat) return <div className="loading">Загрузка...</div>
 
   return (
     <div className="app">
-
-      <aside className={`sidebar ${sidebarOpen ? "sidebar--open" : ""}`} aria-label="Список чатов">
+      <aside className={`sidebar ${sidebarOpen ? "sidebar--open" : ""}`}>
         <header className="sidebar__header">
-          <button
-            className="icon-btn burger-btn"
-            aria-label="Меню аккаунта"
-            onClick={() => setMenuOpen(prev => !prev)}
-          >
+          <button className="icon-btn burger-btn" onClick={() => setMenuOpen(prev => !prev)}>
             <BurgerIcon />
           </button>
           <span className="sidebar__title">Сообщения</span>
           <button
             className={`icon-btn plus-btn ${newChatOpen ? "plus-btn--open" : ""}`}
-            aria-label="Новая беседа"
             onClick={() => setNewChatOpen(prev => !prev)}
           >
             <PlusIcon />
           </button>
         </header>
 
-        <div className={`account-panel ${menuOpen ? "account-panel--open" : ""}`} aria-hidden={!menuOpen}>
+        <div className={`account-panel ${menuOpen ? "account-panel--open" : ""}`}>
           <div className="account-panel__overlay" onClick={() => setMenuOpen(false)} />
           <div className="account-panel__content">
             <div className="account-panel__profile">
@@ -185,30 +208,14 @@ const logout = async () => {
 
         <div className={`new-chat-panel ${newChatOpen ? "new-chat-panel--open" : ""}`}>
           <p className="new-chat-panel__title">Новый чат</p>
-          <input
-            placeholder="Никнейм"
-            className="new-chat-input"
-            value={newChatUsername}
-            onChange={e => setNewChatUsername(e.target.value)}
-          />
-          <input
-            placeholder="Номер телефона"
-            className="new-chat-input"
-            value={newChatPhone}
-            onChange={e => setNewChatPhone(e.target.value)}
-          />
-
+          <input placeholder="Никнейм" className="new-chat-input" value={newChatUsername} onChange={e => setNewChatUsername(e.target.value)} />
+          <input placeholder="Номер телефона" className="new-chat-input" value={newChatPhone} onChange={e => setNewChatPhone(e.target.value)} />
           {searchError && <p className="new-chat-error">{searchError}</p>}
           <button className="new-chat-submit" onClick={searchUser}>Найти</button>
         </div>
 
         <div className="sidebar__search">
-          <input
-            placeholder="Поиск..."
-            aria-label="Поиск чатов"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-          />
+          <input placeholder="Поиск..." value={query} onChange={e => setQuery(e.target.value)} />
         </div>
 
         <ul className="chat-list">
@@ -221,11 +228,8 @@ const logout = async () => {
                   type="button"
                   className={`chat-item ${id === (activeChat._id ?? activeChat.id) ? "chat-item--active" : ""}`}
                   onClick={() => { setActiveChat(chat); setSidebarOpen(false) }}
-                  aria-pressed={id === (activeChat._id ?? activeChat.id)}
                 >
-                  <div className={`avatar avatar--${getColor(id)}`}>
-                    {getInitials(name)}
-                  </div>
+                  <div className={`avatar avatar--${getColor(id)}`}>{getInitials(name)}</div>
                   <div className="chat-item__info">
                     <span className="chat-item__name">{name}</span>
                     <span className="chat-item__preview"></span>
@@ -239,10 +243,10 @@ const logout = async () => {
 
       <main className="main">
         <div className="chat-header">
-          <button className="icon-btn mobile-back" aria-label="Назад" onClick={() => setSidebarOpen(true)}>
+          <button className="icon-btn mobile-back" onClick={() => setSidebarOpen(true)}>
             <BackIcon />
           </button>
-          <div className={`avatar avatar--${getColor(activeChat._id ?? activeChat.id)}`}>
+          <div className={`avatar avatar--${getColor(activeChat._id)}`}>
             {getInitials(getChatName(activeChat))}
           </div>
           <div className="chat-header__info">
@@ -258,10 +262,11 @@ const logout = async () => {
               <time className="msg__time">{msg.time}</time>
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
 
         <footer className="input-area">
-          <button className="icon-btn" aria-label="Прикрепить файл">
+          <button className="icon-btn">
             <AttachIcon />
           </button>
           <textarea
@@ -269,10 +274,9 @@ const logout = async () => {
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKey}
             placeholder="Написать сообщение..."
-            aria-label="Текст сообщения"
             rows={1}
           />
-          <button className="send-btn" onClick={sendMessage} aria-label="Отправить сообщение">
+          <button className="send-btn" onClick={sendMessage}>
             <SendIcon />
           </button>
         </footer>

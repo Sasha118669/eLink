@@ -68,4 +68,30 @@ app.post("/chats", auth, async (req, res) => {
   res.status(201).json(chat);
 });
 
+// получить сообщения чата
+app.get("/chats/:chatId/messages", auth, async (req, res) => {
+  const { chatId } = req.params;
+  const messages = await Message.find({ chat: chatId }).populate("sender", "username");
+  res.json(messages);
+});
+// отправить сообщение
+app.post("/chats/:chatId/messages", auth, async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const { text } = req.body;
+
+    const message = await Message.create({
+      chat: chatId,
+      sender: req.user.id,
+      text,
+    });
+
+    await message.populate("sender", "username");
+    res.json(message);
+  } catch (err) {
+    console.error("Ошибка создания сообщения:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(3000, () => console.log("Server is running on port 3000"));
