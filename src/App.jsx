@@ -147,7 +147,7 @@ export default function App() {
     }
   }
 
-  // Отправка — сохраняем в БД
+    
   const sendMessage = async () => {
     const text = input.trim()
     if (!text || !activeChat) return
@@ -162,13 +162,7 @@ export default function App() {
         body: JSON.stringify({ text }),
       })
       if (!res.ok) return
-      const msg = await res.json()
-      setMessages(prev => [...prev, {
-        id: msg._id,
-        text: msg.text,
-        out: true,
-        time: formatTime(msg.createdAt),
-      }])
+  
     } catch (e) {
       console.error("Ошибка отправки:", e)
     }
