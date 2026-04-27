@@ -9,6 +9,33 @@ import Message from "./models/Message.js";
 import { authMiddleware } from "edaten-auth/middleware";
 import { Server } from "socket.io";
 import http from "http";
+import crypto from "crypto";
+
+// Шифрование сообщений
+const KEY = Buffer.from(process.env.ENCRYPTION_KEY, "hex");
+const ALGORITHM = "aes-256-gcm";
+
+const encrypt = (text) => {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv(ALGORITHM, KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(text, "utf8"), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return iv.toString("hex") + ":" + authTag.toString("hex") + ":" + encrypted.toString("hex");
+};
+
+const decrypt = (data) => {
+  try {
+    const [ivHex, authTagHex, encryptedHex] = data.split(":");
+    const iv = Buffer.from(ivHex, "hex");
+    const authTag = Buffer.from(authTagHex, "hex");
+    const encrypted = Buffer.from(encryptedHex, "hex");
+    const decipher = crypto.createDecipheriv(ALGORITHM, KEY, iv);
+    decipher.setAuthTag(authTag);
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+  } catch {
+    return data; // Если не удалось расшифровать, возвращаем как есть
+  }
+};
 
 const app = express();
 const server = http.createServer(app);
@@ -96,7 +123,11 @@ app.post("/chats", auth, async (req, res) => {
 app.get("/chats/:chatId/messages", auth, async (req, res) => {
   const { chatId } = req.params;
   const messages = await Message.find({ chat: chatId }).populate("sender", "username");
-  res.json(messages);
+  const decrypted = messages.map(m => ({
+    ...m.toObject(),
+    text: decrypt(m.text)
+  }));
+  res.json(decrypted);
 });
 // отправить сообщение
 app.post("/chats/:chatId/messages", auth, async (req, res) => {
@@ -107,10 +138,11 @@ app.post("/chats/:chatId/messages", auth, async (req, res) => {
     const message = await Message.create({
       chat: chatId,
       sender: req.user.id,
-      text,
+      text: encrypt(text),
     });
 
     await message.populate("sender", "username");
+    message.text = decrypt(message.text);
     
     // Отправляем сообщение всем в комнате этого чата
     io.to(chatId).emit("new_message", message);
