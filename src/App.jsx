@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import "./App.css"
 import MiniSearch from 'minisearch'
 import { PlusIcon, BackIcon, AttachIcon, SendIcon, BurgerIcon, LogoutIcon } from "./components/icons/Icons"
+import { io } from "socket.io-client"
 
 const COLORS = ["purple", "teal", "coral", "blue", "pink"]
 const getColor = (id) => COLORS[id.charCodeAt(0) % COLORS.length]
@@ -12,6 +13,8 @@ const miniSearch = new MiniSearch({
   storeFields: ['id', 'name'],
   idField: 'id',
 })
+
+const socket = io("https://elink-p96q.onrender.com")
 
 export default function App() {
   const token = localStorage.getItem("accessToken")
@@ -74,6 +77,27 @@ export default function App() {
       })))
     }
     loadMessages()
+
+    // Входим в комнату чата
+    socket.emit("join_chat", activeChat._id)
+
+    // Слушаем новые сообщения
+    socket.on("new_message", (message) => {
+      if (message.chat === activeChat._id) {
+        setMessages(prev => [...prev, {
+          id: message._id,
+          text: message.text,
+          out: message.sender._id === currentUser._id,
+          time: formatTime(message.createdAt),
+        }])
+      }
+    })
+
+    // Чистим при смене чата
+    return () => {
+      socket.emit("leave_chat", activeChat._id)
+      socket.off("new_message")
+    }
   }, [activeChat, currentUser])
 
   // Прокрутка вниз при новых сообщениях

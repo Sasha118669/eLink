@@ -7,8 +7,14 @@ import createAuth from "edaten-auth";
 import Chat from "./models/Chat.js";
 import Message from "./models/Message.js";
 import { authMiddleware } from "edaten-auth/middleware";
+import { Server } from "socket.io";
+import http from "http";
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: ["http://localhost:5173", "https://e-link-sage.vercel.app"] }
+});
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
@@ -29,6 +35,24 @@ app.use("/auth", createAuth({
 }));
 
 const auth = authMiddleware(process.env.JWT_SECRET);
+
+// Socket.io подключение
+io.on("connection", (socket) => {
+  console.log("Пользователь подключился:", socket.id);
+
+  socket.on("join_chat", (chatId) => {
+    socket.join(chatId);
+    console.log(`Пользователь вошёл в чат: ${chatId}`);
+  });
+
+  socket.on("leave_chat", (chatId) => {
+    socket.leave(chatId);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Пользователь отключился:", socket.id);
+  });
+});
 
 app.get("/auth/me", auth, async (req, res) => {
   const user = await mongoose
@@ -87,6 +111,10 @@ app.post("/chats/:chatId/messages", auth, async (req, res) => {
     });
 
     await message.populate("sender", "username");
+    
+    // Отправляем сообщение всем в комнате этого чата
+    io.to(chatId).emit("new_message", message);
+    
     res.json(message);
   } catch (err) {
     console.error("Ошибка создания сообщения:", err.message);
@@ -94,4 +122,4 @@ app.post("/chats/:chatId/messages", auth, async (req, res) => {
   }
 });
 
-app.listen(3000, () => console.log("Server is running on port 3000"));
+server.listen(process.env.PORT || 3000, () => console.log("Server is running"));
