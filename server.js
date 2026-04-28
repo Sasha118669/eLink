@@ -154,4 +154,36 @@ app.post("/chats/:chatId/messages", auth, async (req, res) => {
   }
 });
 
+// копировать текст сообщения
+app.post("/chats/:chatId/messages/:messageId/copy", auth, async (req, res) => {
+  const { chatId, messageId } = req.params;
+  const message = await Message.findOne({ _id: messageId, chat: chatId }).populate("sender", "username");
+  if (!message) return res.status(404).json({ error: "Message not found" });
+  message.text = decrypt(message.text);
+  res.json({ text: message.text });
+});
+
+// редактировать сообщение
+app.post("/chats/:chatId/messages/:messageId/edit", auth, async (req, res) => {
+  const { chatId, messageId } = req.params;
+  const { text } = req.body;
+  const message = await Message.findOne({ _id: messageId, chat: chatId }).populate("sender", "username");
+  if (!message) return res.status(404).json({ error: "Message not found" });
+  if (message.sender._id.toString() !== req.user.id) return res.status(403).json({ error: "Forbidden" });
+  message.text = encrypt(text);
+  await message.save();
+  message.text = decrypt(message.text);
+  res.json(message);
+});
+
+// удалить сообщение
+app.post("/chats/:chatId/messages/:messageId/delete", auth, async (req, res) => {
+  const { chatId, messageId } = req.params;
+  const message = await Message.findOne({ _id: messageId, chat: chatId }).populate("sender", "username");
+  if (!message) return res.status(404).json({ error: "Message not found" });
+  if (message.sender._id.toString() !== req.user.id) return res.status(403).json({ error: "Forbidden" });
+  await Message.deleteOne({ _id: messageId, chat: chatId });
+  res.json({ message: "Message deleted" });
+});
+
 server.listen(process.env.PORT || 3000, () => console.log("Server is running"));

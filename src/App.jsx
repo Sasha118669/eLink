@@ -34,6 +34,8 @@ export default function App() {
   const [searchError, setSearchError] = useState("")
   const [menuOpen, setMenuOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
+  const [editText, setEditText] = useState("")
+  const [editingId, setEditingId] = useState(null)
   const messagesEndRef = useRef(null)
   const { menu, close, onContextMenu, onTouchStart, onTouchEnd, onTouchMove } = useContextMenu()
 
@@ -172,6 +174,62 @@ export default function App() {
     }
   }
 
+  const handleAction = (action, msgId) => {
+    if (action === "copy") {
+      const msg = messages.find(m => m.id === msgId)
+      if (msg) {
+        navigator.clipboard.writeText(msg.text).catch(err => console.error("Не удалось скопировать:", err))
+      }
+    }
+
+    if (action === "edit") {
+      const msg = messages.find(m => m.id === msgId);
+      if (msg) {
+        setEditText(msg.text);
+        setEditingId(msgId);
+      }
+    }
+
+    if (action === "delete") {
+      fetch(`http://localhost:3000/chats/${activeChat._id}/messages/${msgId}/delete`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).then(res => {
+        if (res.ok) {
+          setMessages(prev => prev.filter(m => m.id !== msgId))
+        }
+      }).catch(err => console.error("Ошибка удаления:", err))
+    }
+
+    close()
+  }
+
+  const saveEdit = () => {
+    if (!editText.trim() || !editingId) return;
+    
+    fetch(`http://localhost:3000/chats/${activeChat._id}/messages/${editingId}/edit`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text: editText }),
+    })
+      .then(res => {
+        if (res.ok) {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === editingId
+                ? { ...m, text: editText }
+                : m
+            )
+          );
+          setEditingId(null);
+        }
+      })
+      .catch(err => console.error("Ошибка редактирования:", err));
+  };
+
   const handleKey = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
@@ -287,7 +345,22 @@ export default function App() {
       onTouchEnd={onTouchEnd}
       onTouchMove={onTouchMove}
     >
-      <div className="bubble">{msg.text}</div>
+      <div className="bubble">
+                {editingId === msg.id ? (
+                  <input
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    onBlur={saveEdit}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveEdit();
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
+                    autoFocus
+                  />
+                ) : (
+                  <span>{msg.text}</span>
+                )}
+              </div>
       <time className="msg__time">{msg.time}</time>
     </div>
   ))}
