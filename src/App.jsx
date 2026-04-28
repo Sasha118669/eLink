@@ -191,7 +191,7 @@ export default function App() {
     }
 
     if (action === "delete") {
-      fetch(`http://localhost:3000/chats/${activeChat._id}/messages/${msgId}/delete`, {
+      fetch(`https://elink-p96q.onrender.com/chats/${activeChat._id}/messages/${msgId}/delete`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       }).then(res => {
@@ -207,7 +207,7 @@ export default function App() {
   const saveEdit = () => {
     if (!editText.trim() || !editingId) return;
     
-    fetch(`http://localhost:3000/chats/${activeChat._id}/messages/${editingId}/edit`, {
+    fetch(`https://elink-p96q.onrender.com/chats/${activeChat._id}/messages/${editingId}/edit`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
