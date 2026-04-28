@@ -3,6 +3,9 @@ import "./App.css"
 import MiniSearch from 'minisearch'
 import { PlusIcon, BackIcon, AttachIcon, SendIcon, BurgerIcon, LogoutIcon } from "./components/icons/Icons"
 import { io } from "socket.io-client"
+import { useContextMenu } from "./components/useContextMenu";
+import { ContextMenu } from "./components/ContextMenu";
+
 
 const COLORS = ["purple", "teal", "coral", "blue", "pink"]
 const getColor = (id) => COLORS[id.charCodeAt(0) % COLORS.length]
@@ -32,6 +35,7 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
   const messagesEndRef = useRef(null)
+  const { menu, close, onContextMenu, onTouchStart, onTouchEnd, onTouchMove } = useContextMenu()
 
   // Инициализация: загружаем пользователя и чаты
   useEffect(() => {
@@ -274,14 +278,31 @@ export default function App() {
         </div>
 
         <div className="messages">
-          {messages.map(msg => (
-            <div key={msg.id} className={`msg ${msg.out ? "msg--out" : "msg--in"}`}>
-              <div className="bubble">{msg.text}</div>
-              <time className="msg__time">{msg.time}</time>
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
+  {messages.map(msg => (
+    <div
+      key={msg.id}
+      className={`msg ${msg.out ? "msg--out" : "msg--in"}`}
+      onContextMenu={e => onContextMenu(e, msg.out ? "out" : "in", msg.id)}
+      onTouchStart={e => onTouchStart(e, msg.out ? "out" : "in", msg.id)}
+      onTouchEnd={onTouchEnd}
+      onTouchMove={onTouchMove}
+    >
+      <div className="bubble">{msg.text}</div>
+      <time className="msg__time">{msg.time}</time>
+    </div>
+  ))}
+  <div ref={messagesEndRef} />
+
+  {menu.visible && (
+    <ContextMenu
+      x={menu.x}
+      y={menu.y}
+      type={menu.type}
+      onAction={action => handleAction(action, menu.msgId)}
+      onClose={close}
+    />
+  )}
+</div>
 
         <footer className="input-area">
           <button className="icon-btn">
