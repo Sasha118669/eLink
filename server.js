@@ -186,4 +186,14 @@ app.post("/chats/:chatId/messages/:messageId/delete", auth, async (req, res) => 
   res.json({ message: "Message deleted" });
 });
 
+// удалить чат
+app.post("/chats/:chatId/delete", auth, async (req, res) => {
+  const { chatId } = req.params;
+  const chat = await Chat.findById(chatId);
+  if (!chat) return res.status(404).json({ error: "Chat not found" });
+  if (!chat.members.includes(req.user.id)) return res.status(403).json({ error: "Forbidden" });
+  await Chat.deleteOne({ _id: chatId });
+  res.json({ message: "Chat deleted" });
+});
+
 server.listen(process.env.PORT || 3000, () => console.log("Server is running"));

@@ -5,6 +5,7 @@ import { PlusIcon, BackIcon, AttachIcon, SendIcon, BurgerIcon, LogoutIcon } from
 import { io } from "socket.io-client"
 import { useContextMenu } from "./components/useContextMenu";
 import { ContextMenu } from "./components/ContextMenu";
+import { ChatMenu } from "./components/ChatMenu";
 
 
 const COLORS = ["purple", "teal", "coral", "blue", "pink"]
@@ -174,7 +175,7 @@ export default function App() {
     }
   }
 
-  const handleAction = (action, msgId) => {
+  const messageAction = (action, msgId) => {
     if (action === "copy") {
       const msg = messages.find(m => m.id === msgId)
       if (msg) {
@@ -202,6 +203,22 @@ export default function App() {
     }
 
     close()
+  }
+  const chatAction = (action, chatId) => {
+    if(action === "delete"){
+      fetch(`https://elink-p96q.onrender.com/chats/${chatId}/delete`,{
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    })
+    .then(res => {
+      if(res.ok){
+        setChats(prev => prev.filter(c => (c._id ?? c.id) !== chatId))
+      }
+    }).catch(err => console.error("Ошибка удаления:", err))
+    }
   }
 
   const saveEdit = () => {
@@ -308,6 +325,10 @@ export default function App() {
                   type="button"
                   className={`chat-item ${id === (activeChat._id ?? activeChat.id) ? "chat-item--active" : ""}`}
                   onClick={() => { setActiveChat(chat); setSidebarOpen(false) }}
+                  onContextMenu={(e) => onContextMenu(e, "chat", id)}
+                  onTouchStart={(e) => onTouchStart(e, "chat", id)}
+                  onTouchEnd={onTouchEnd}
+                  onTouchMove={onTouchMove}
                 >
                   <div className={`avatar avatar--${getColor(id)}`}>{getInitials(name)}</div>
                   <div className="chat-item__info">
@@ -318,6 +339,14 @@ export default function App() {
               </li>
             )
           })}
+    {menu.visible && (
+    <ChatMenu
+      x={menu.x}
+      y={menu.y}
+      onAction={action => chatAction(action, menu.chatId)}
+      onClose={close}
+    />
+  )}
         </ul>
       </aside>
 
@@ -366,12 +395,12 @@ export default function App() {
   ))}
   <div ref={messagesEndRef} />
 
-  {menu.visible && (
+  {menu.visible && menu.type === "message" && (
     <ContextMenu
       x={menu.x}
       y={menu.y}
       type={menu.type}
-      onAction={action => handleAction(action, menu.msgId)}
+      onAction={action => messageAction(action, menu.msgId)}
       onClose={close}
     />
   )}

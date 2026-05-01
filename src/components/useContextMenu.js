@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
 export function useContextMenu() {
-  const [menu, setMenu] = useState({ visible: false, x: 0, y: 0, type: null, msgId: null });
+  const [menu, setMenu] = useState({ visible: false, x: 0, y: 0, type: null, chatId: null, msgId: null });
   const timerRef = useRef(null);
 
-  const open = useCallback((x, y, type, msgId) => {
-    setMenu({ visible: true, x, y, type, msgId });
+  const open = useCallback((x, y, type, chatId, msgId) => {
+    setMenu({ visible: true, x, y, type, chatId, msgId });
   }, []);
 
   const close = useCallback(() => {
@@ -13,17 +13,17 @@ export function useContextMenu() {
   }, []);
 
   // ПКМ на десктопе
-  const onContextMenu = useCallback((e, type, msgId) => {
-    console.log("Context menu triggered", { x: e.clientX, y: e.clientY, type, msgId });
+  const onContextMenu = useCallback((e, type, chatId, msgId) => {
+    console.log("Context menu triggered", { x: e.clientX, y: e.clientY, type, chatId, msgId });
     e.preventDefault();
-    open(e.clientX, e.clientY, type, msgId);
+    open(e.clientX, e.clientY, type, chatId, msgId);
   }, [open]);
 
   // Зажатие на телефоне
-  const onTouchStart = useCallback((e, type, msgId) => {
+  const onTouchStart = useCallback((e, type, chatId, msgId) => {
     const touch = e.touches[0];
     timerRef.current = setTimeout(() => {
-      open(touch.clientX, touch.clientY, type, msgId);
+      open(touch.clientX, touch.clientY, type, chatId, msgId);
     }, 500);
   }, [open]);
 
